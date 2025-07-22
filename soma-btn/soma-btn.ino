@@ -7,11 +7,15 @@ uint8_t selectedChannel = 0;
 
 #ifdef ENABLE_SERIAL
 #define D(x) Serial.print(x);
+#define DBIN(x) Serial.print(x, BIN);
+#define DHEX(x) Serial.print(x, HEX);
 #define DLN(x) Serial.println(x);
 #define DBR Serial.println();
 #else
 #define DBG(x) ;
 #define DBGLN(x) ;
+#define DBIN(x) ;
+#define DHEX(x) ;
 #define DBGBR ;
 #endif
 
@@ -58,12 +62,12 @@ void setup() {
 
   uint8_t conf = ledMcp.readRegister(MCP23017Register::IODIR_A);
   D("IODIR_A : ");
-  D(conf, BIN);
+  DBIN(conf);
   DBR;
 
   conf = ledMcp.readRegister(MCP23017Register::IODIR_B);
   D("IODIR_B : ");
-  D(conf, BIN);
+  DBIN(conf);
   DBR;
 
   DLN("Startup Done");
@@ -102,7 +106,8 @@ void loop() {
 
   if (selectedChannel != oldSelectedChannel) {
     D("switching channel to ");
-    DLN(selectedChannel | 0x10, BIN);
+    DBIN(selectedChannel | 0x10);
+    DBR;
     ledMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
     irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
     oldSelectedChannel = selectedChannel;
