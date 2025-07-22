@@ -4,7 +4,7 @@
 
 #define SDA 4
 #define SCL 5
-#define I2CADDR 0x20
+#define I2CADDR 0x21
 
 #define BANK_SELECT_PIN 10
 #define BANK_1_CHANNEL_PIN 11

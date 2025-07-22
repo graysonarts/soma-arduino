@@ -18,14 +18,15 @@ uint8_t selectedChannel = 0;
 #define SDA 4
 #define SCL 5
 #define BTN_CNT 12
-#define MCP_ADDR 0x20
+#define LED_ADDR 0x20
+#define IR_ADDR 0x21
 
 int8_t button_pins[BTN_CNT] = { 16, 17, 18, 19, 20, 21, 22, 26, 27, 0, 1 };
 int8_t button_states[BTN_CNT] = { -1 };
-int8_t led_pins[BTN_CNT] = { 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 2, 3 };
 unsigned long last_auto = 0;
 
-MCP23017 mcp = MCP23017(MCP_ADDR, Wire);
+MCP23017 ledMcp = MCP23017(LED_ADDR, Wire);
+MCP23017 irMcp = MCP23017(IR_ADDR, Wire); // Not a real MCP, just using the same protocol for write
 
 void setup() {
   #ifdef ENABLE_SERIAL
@@ -38,32 +39,29 @@ void setup() {
   Wire.setSDA(SDA);
   Wire.setSCL(SCL);
   Wire.begin();
-  mcp.init();
+  ledMcp.init();
+  irMcp.init();
   delay(1000);
 
   DLN("Setting MCP ports to output");
-  mcp.portMode(MCP23017Port::A, 0);
-  mcp.portMode(MCP23017Port::B, 0);
+  ledMcp.portMode(MCP23017Port::A, 0);
+  ledMcp.portMode(MCP23017Port::B, 0);
 
-  mcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
-  mcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
+  ledMcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
+  ledMcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
 
   // Configure button pins for input
   // Configuer led pins for output
   for (int i = 0; i < BTN_CNT; i++) {
     pinMode(button_pins[i], INPUT_PULLUP);
-    // pinMode(led_pins[i], OUTPUT);
   }
 
-
-
-
-  uint8_t conf = mcp.readRegister(MCP23017Register::IODIR_A);
+  uint8_t conf = ledMcp.readRegister(MCP23017Register::IODIR_A);
   D("IODIR_A : ");
   D(conf, BIN);
   DBR;
 
-  conf = mcp.readRegister(MCP23017Register::IODIR_B);
+  conf = ledMcp.readRegister(MCP23017Register::IODIR_B);
   D("IODIR_B : ");
   D(conf, BIN);
   DBR;
@@ -105,7 +103,8 @@ void loop() {
   if (selectedChannel != oldSelectedChannel) {
     D("switching channel to ");
     DLN(selectedChannel | 0x10, BIN);
-    mcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+    ledMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+    irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
     oldSelectedChannel = selectedChannel;
     delay(2000);
   }
