@@ -25,7 +25,7 @@ uint8_t selectedChannel = 0;
 #define LED_ADDR 0x20
 #define IR_ADDR 0x21
 
-int8_t button_pins[BTN_CNT] = { 16, 17, 18, 19, 20, 21, 22, 26, 27, 0, 1 };
+int8_t button_pins[BTN_CNT] = { 13, 12, 11, 10, 9, 8, 7, 6, 3, 2, 1, 0 };
 int8_t button_states[BTN_CNT] = { -1 };
 unsigned long last_auto = 0;
 
@@ -109,9 +109,9 @@ void loop() {
     DBIN(selectedChannel | 0x10);
     DBR;
     ledMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
-    irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+    delay(100);
+    //irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
     oldSelectedChannel = selectedChannel;
-    delay(2000);
   }
 
   delay(100);

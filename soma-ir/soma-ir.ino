@@ -93,8 +93,8 @@ void setup()
   Serial.begin(115200); // Status message will be sent to PC at 9600 baud
 
   // This is useful for debugging, but it needs to be wrapped in some USB Serial ifdef, and I'm not sure which at the moment
-  // while (!Serial)
-  //   ;
+  while (!Serial)
+     ;
 
   Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
