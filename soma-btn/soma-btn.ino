@@ -25,18 +25,28 @@ uint8_t selectedChannel = 0;
 #define LED_ADDR 0x20
 #define IR_ADDR 0x21
 
-int8_t button_pins[BTN_CNT] = { 13, 12, 11, 10, 9, 8, 7, 6, 3, 2, 1, 0 };
+//                              C0. C1. C2. C3...
+int8_t button_pins[BTN_CNT] = { 0, 1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13 };
 int8_t button_states[BTN_CNT] = { -1 };
 unsigned long last_auto = 0;
 
 MCP23017 ledMcp = MCP23017(LED_ADDR, Wire);
-MCP23017 irMcp = MCP23017(IR_ADDR, Wire); // Not a real MCP, just using the same protocol for write
+MCP23017 irMcp = MCP23017(IR_ADDR, Wire);  // Not a real MCP, just using the same protocol for write
 
+void setChannel(u8int_t chan) {
+  u8int_t high = chan >> 8;
+  u8int_t low = (chan & 0xFF);
+  // TODO: FINISH!
+}
+ 
 void setup() {
-  #ifdef ENABLE_SERIAL
+#ifdef ENABLE_SERIAL
   Serial.begin(115200);
-  while (!Serial);
-  #endif
+#ifdef DEBUG
+  while (!Serial)
+    ;
+#endif  // DEBUG
+#endif  // SERIAL
   DLN("Start up");
 
   // Setup the MCP to be configured the way we need it
@@ -48,11 +58,16 @@ void setup() {
   delay(1000);
 
   DLN("Setting MCP ports to output");
-  ledMcp.portMode(MCP23017Port::A, 0);
-  ledMcp.portMode(MCP23017Port::B, 0);
+  ledMcp.portMode(MCP23017Port::A, 0, 0xFF, 0xFF);
+  ledMcp.portMode(MCP23017Port::B, 0, 0xFF, 0xFF);
+
 
   ledMcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
   ledMcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
+
+  ledMcp.writePort(MCP23017Port::A, 0);
+  ledMcp.writePort(MCP23017Port::B, 0);
+
 
   // Configure button pins for input
   // Configuer led pins for output
@@ -85,13 +100,13 @@ void loop() {
     button_states[i] = digitalRead(button_pins[i]);
   }
 
-  #ifdef AUTO
+#ifdef AUTO
   if (millis() - last_auto > 1000) {
     Serial.println("Auto Advancing");
     selectedChannel = (selectedChannel + 1) % BTN_CNT;
     last_auto = millis();
   }
-  #endif
+#endif
 
   for (int i = 0; i < BTN_CNT; i++) {
     D(button_states[i] ? "X" : ".");
@@ -108,9 +123,14 @@ void loop() {
     D("switching channel to ");
     DBIN(selectedChannel | 0x10);
     DBR;
-    ledMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
-    delay(100);
-    //irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+    if (selectedChannel / 8 > 0) {
+      ledMcp.writePort(MCP23017Port::A, selectedChannel % 8);
+      ledMcp.writePort(MCP23017Port::B, 0);
+    } else {
+      ledMcp.writePort(MCP23017Port::A, 0);
+      ledMcp.writePort(MCP23017Port::B, selectedChannel);
+    }
+    irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
     oldSelectedChannel = selectedChannel;
   }
 
