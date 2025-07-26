@@ -19,7 +19,7 @@
 #define ADDRESS 0x00
 #define REPEATS 0
 
-#define DELAY_AFTER_SEND 100
+#define DELAY_AFTER_SEND 50
 
 bool hasSentInitialData = false;
 
@@ -69,22 +69,26 @@ void handleRx(int numBytes)
   selectedBank = (rxByte[1] & 0x0F) / 4;
 }
 
-void sendIrOnBankAndChannel(uint8_t bank, uint8_t channel)
+void selectBank(uint8_t bank)
 {
-  Serial.print("Sending data on bank ");
-  Serial.print(bank);
-  Serial.print(" and channel ");
-  Serial.println(channel);
+  Serial.print("Selecting bank ");
+  Serial.println(bank);
 
   // Bank select
   IrSender.setSendPin(BANK_SELECT_PIN);
   IrSender.sendNEC(ADDRESS, commands[selectedBank], REPEATS);
+}
+
+void selectChannelOnBank(uint8_t channel, uint8_t bank)
+{
+  Serial.print("selecting channel ");
+  Serial.print(channel);
+  Serial.print(" on bank ");
+  Serial.println(bank);
 
   // Channel select
   IrSender.setSendPin(bankChannelPins[selectedBank]);
   IrSender.sendNEC(ADDRESS, commands[selectedChannel], REPEATS);
-
-  delay(DELAY_AFTER_SEND); // delay must be greater than 5 ms (RECORD_GAP_MICROS), otherwise the receiver sees it as one long signal
 }
 
 void setup()
@@ -93,8 +97,8 @@ void setup()
   Serial.begin(115200); // Status message will be sent to PC at 9600 baud
 
   // This is useful for debugging, but it needs to be wrapped in some USB Serial ifdef, and I'm not sure which at the moment
-  while (!Serial)
-     ;
+  // while (!Serial)
+  //   ;
 
   Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
@@ -103,7 +107,8 @@ void setup()
   IrSender.begin(tSendPin, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN); // Specify send pin and enable feedback LED at default feedback LED pin
   Serial.print(F("Send IR signals at pin "));
   Serial.println(tSendPin);
-  sendIrOnBankAndChannel(selectedBank, selectedChannel);
+  selectChannelOnBank(0, 0);
+  selectBank(0);
 
   // I2C Setup
   Wire.setSDA(SDA);
@@ -131,11 +136,20 @@ void loop()
   Serial.flush();
   */
 
-  if (selectedBank == lastBank && selectedChannel == lastChannel)
-    return;
+  bool transmitted = false;
 
-  lastChannel = selectedChannel;
-  lastBank = selectedBank;
+  if (selectedBank != lastBank) {
+    selectChannelOnBank(selectedChannel, selectedBank);
+    selectBank(selectedBank);
+    transmitted = true;    
+  } else if (selectedChannel != lastChannel) {
+    selectChannelOnBank(selectedChannel, selectedBank);
+    transmitted = true;
+  }
 
-  sendIrOnBankAndChannel(selectedBank, selectedChannel);
+  if (transmitted) {
+    lastChannel = selectedChannel;
+    lastBank = selectedBank;
+    delay(DELAY_AFTER_SEND);
+  }
 }
