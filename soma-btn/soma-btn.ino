@@ -32,10 +32,39 @@ int8_t prev_button_states[BTN_CNT] = { HIGH };
 unsigned long button_debounce_time[BTN_CNT] = { 0 };
 unsigned long last_auto = 0;
 
+// Interrupt-based button handling
+volatile bool button_interrupt_flags[BTN_CNT] = { false };
+volatile unsigned long interrupt_timestamps[BTN_CNT] = { 0 };
+
 #define DEBOUNCE_DELAY 50
 
 MCP23017 ledMcp = MCP23017(LED_ADDR, Wire);
 MCP23017 irMcp = MCP23017(IR_ADDR, Wire);  // Not a real MCP, just using the same protocol for write
+
+// Generic button interrupt handler
+void buttonInterrupt(int button_index) {
+  unsigned long current_time = millis();
+  
+  // Simple time-based debouncing in ISR
+  if (current_time - interrupt_timestamps[button_index] > DEBOUNCE_DELAY) {
+    button_interrupt_flags[button_index] = true;
+    interrupt_timestamps[button_index] = current_time;
+  }
+}
+
+// Individual interrupt handlers for each button
+void button0_isr() { buttonInterrupt(0); }
+void button1_isr() { buttonInterrupt(1); }
+void button2_isr() { buttonInterrupt(2); }
+void button3_isr() { buttonInterrupt(3); }
+void button4_isr() { buttonInterrupt(4); }
+void button5_isr() { buttonInterrupt(5); }
+void button6_isr() { buttonInterrupt(6); }
+void button7_isr() { buttonInterrupt(7); }
+void button8_isr() { buttonInterrupt(8); }
+void button9_isr() { buttonInterrupt(9); }
+void button10_isr() { buttonInterrupt(10); }
+void button11_isr() { buttonInterrupt(11); }
 
 void setChannel(uint8_t chan) {
   // Channels 0-7 use PORT B, channels 8-11 use PORT A
@@ -77,10 +106,20 @@ void setup() {
 
   setChannel(0);
 
-  // Configure button pins for input
-  // Configuer led pins for output
+  // Configure button pins for input with interrupts
+  void (*button_handlers[BTN_CNT])() = {
+    button0_isr, button1_isr, button2_isr, button3_isr,
+    button4_isr, button5_isr, button6_isr, button7_isr,
+    button8_isr, button9_isr, button10_isr, button11_isr
+  };
+  
   for (int i = 0; i < BTN_CNT; i++) {
     pinMode(button_pins[i], INPUT_PULLUP);
+    button_states[i] = digitalRead(button_pins[i]);
+    prev_button_states[i] = button_states[i];
+    
+    // Attach interrupt for FALLING edge (button press with pullup)
+    attachInterrupt(digitalPinToInterrupt(button_pins[i]), button_handlers[i], FALLING);
   }
 
   uint8_t conf = ledMcp.readRegister(MCP23017Register::IODIR_A);
@@ -100,33 +139,32 @@ void loop() {
   unsigned long current_time = millis();
   bool channel_changed = false;
 
-  // Read and debounce all buttons
+  // Process interrupt flags from button presses
   for (int i = 0; i < BTN_CNT; i++) {
-    int8_t reading = digitalRead(button_pins[i]);
-    
-    // Check if button state has changed
-    if (reading != prev_button_states[i]) {
-      // Reset debounce timer
-      button_debounce_time[i] = current_time;
-    }
-    
-    // If enough time has passed since last change, update the state
-    if ((current_time - button_debounce_time[i]) > DEBOUNCE_DELAY) {
-      if (reading != button_states[i]) {
-        button_states[i] = reading;
+    if (button_interrupt_flags[i]) {
+      // Disable interrupts temporarily while processing
+      noInterrupts();
+      button_interrupt_flags[i] = false;
+      interrupts();
+      
+      // Verify button is still pressed (additional debouncing)
+      if (digitalRead(button_pins[i]) == LOW) {
+        selectedChannel = i;
+        channel_changed = true;
+        D("Button ");
+        D(i);
+        DLN(" pressed (interrupt)");
         
-        // Detect button press (HIGH to LOW transition with pullup)
-        if (button_states[i] == LOW) {
-          selectedChannel = i;
-          channel_changed = true;
-          D("Button ");
-          D(i);
-          DLN(" pressed");
-        }
+        // Update button state
+        button_states[i] = LOW;
+      }
+    } else {
+      // Update released button states
+      int8_t current_state = digitalRead(button_pins[i]);
+      if (button_states[i] == LOW && current_state == HIGH) {
+        button_states[i] = HIGH;
       }
     }
-    
-    prev_button_states[i] = reading;
   }
 
 #ifdef AUTO
@@ -153,6 +191,6 @@ void loop() {
     oldSelectedChannel = selectedChannel;
   }
 
-  // Minimal delay for stability - much more responsive than 100ms
-  delay(5);
+  // Even shorter delay since interrupts handle responsiveness
+  delay(2);
 }
