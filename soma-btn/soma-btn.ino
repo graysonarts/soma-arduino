@@ -131,5 +131,5 @@ void loop() {
     oldSelectedChannel = selectedChannel;
   }
 
-  delay(100);
+  delay(20);
 }
