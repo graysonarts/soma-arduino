@@ -33,10 +33,16 @@ unsigned long last_auto = 0;
 MCP23017 ledMcp = MCP23017(LED_ADDR, Wire);
 MCP23017 irMcp = MCP23017(IR_ADDR, Wire);  // Not a real MCP, just using the same protocol for write
 
-void setChannel(u8int_t chan) {
-  u8int_t high = chan >> 8;
-  u8int_t low = (chan & 0xFF);
-  // TODO: FINISH!
+void setChannel(uint8_t chan) {
+  // Channels 0-7 use PORT B, channels 8-11 use PORT A
+  if (chan < 8) {
+    ledMcp.writePort(MCP23017Port::A, 0);
+    ledMcp.writePort(MCP23017Port::B, 1 << chan);
+  } else {
+    ledMcp.writePort(MCP23017Port::B, 0);
+    ledMcp.writePort(MCP23017Port::A, 1 << (chan - 8));
+  }
+  irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
 }
  
 void setup() {
@@ -65,9 +71,7 @@ void setup() {
   ledMcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
   ledMcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
 
-  ledMcp.writePort(MCP23017Port::A, 0);
-  ledMcp.writePort(MCP23017Port::B, 0);
-
+  setChannel(0);
 
   // Configure button pins for input
   // Configuer led pins for output
@@ -123,14 +127,7 @@ void loop() {
     D("switching channel to ");
     DBIN(selectedChannel | 0x10);
     DBR;
-    if (selectedChannel / 8 > 0) {
-      ledMcp.writePort(MCP23017Port::A, selectedChannel % 8);
-      ledMcp.writePort(MCP23017Port::B, 0);
-    } else {
-      ledMcp.writePort(MCP23017Port::A, 0);
-      ledMcp.writePort(MCP23017Port::B, selectedChannel);
-    }
-    irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+    setChannel(selectedChannel);
     oldSelectedChannel = selectedChannel;
   }
 
