@@ -27,8 +27,12 @@ uint8_t selectedChannel = 0;
 
 //                              C0. C1. C2. C3...
 int8_t button_pins[BTN_CNT] = { 0, 1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13 };
-int8_t button_states[BTN_CNT] = { -1 };
+int8_t button_states[BTN_CNT] = { HIGH };
+int8_t prev_button_states[BTN_CNT] = { HIGH };
+unsigned long button_debounce_time[BTN_CNT] = { 0 };
 unsigned long last_auto = 0;
+
+#define DEBOUNCE_DELAY 50
 
 MCP23017 ledMcp = MCP23017(LED_ADDR, Wire);
 MCP23017 irMcp = MCP23017(IR_ADDR, Wire);  // Not a real MCP, just using the same protocol for write
@@ -93,37 +97,55 @@ void setup() {
 }
 
 void loop() {
-  // - Poll the state of all the button pins
-  // - Cascade button detection, and only change the state of the selected channel if the button is different than the
-  // last time around
+  unsigned long current_time = millis();
+  bool channel_changed = false;
 
-  // If we have a new state, update the MCP and turn on the LED for the selected channel, turn off all other leds
-  // Wait for 100ms
-
+  // Read and debounce all buttons
   for (int i = 0; i < BTN_CNT; i++) {
-    button_states[i] = digitalRead(button_pins[i]);
+    int8_t reading = digitalRead(button_pins[i]);
+    
+    // Check if button state has changed
+    if (reading != prev_button_states[i]) {
+      // Reset debounce timer
+      button_debounce_time[i] = current_time;
+    }
+    
+    // If enough time has passed since last change, update the state
+    if ((current_time - button_debounce_time[i]) > DEBOUNCE_DELAY) {
+      if (reading != button_states[i]) {
+        button_states[i] = reading;
+        
+        // Detect button press (HIGH to LOW transition with pullup)
+        if (button_states[i] == LOW) {
+          selectedChannel = i;
+          channel_changed = true;
+          D("Button ");
+          D(i);
+          DLN(" pressed");
+        }
+      }
+    }
+    
+    prev_button_states[i] = reading;
   }
 
 #ifdef AUTO
-  if (millis() - last_auto > 1000) {
-    Serial.println("Auto Advancing");
+  if (current_time - last_auto > 1000) {
+    DLN("Auto Advancing");
     selectedChannel = (selectedChannel + 1) % BTN_CNT;
-    last_auto = millis();
+    last_auto = current_time;
+    channel_changed = true;
   }
 #endif
 
+  // Display button states for debugging
   for (int i = 0; i < BTN_CNT; i++) {
     D(button_states[i] ? "X" : ".");
-    // Set LED channels
-    if (button_states[i] == LOW) {
-      selectedChannel = i;
-      // break;
-    }
   }
   DBR;
 
-
-  if (selectedChannel != oldSelectedChannel) {
+  // Only update channel if it actually changed
+  if (selectedChannel != oldSelectedChannel || channel_changed) {
     D("switching channel to ");
     DBIN(selectedChannel | 0x10);
     DBR;
@@ -131,5 +153,6 @@ void loop() {
     oldSelectedChannel = selectedChannel;
   }
 
-  delay(100);
+  // Minimal delay for stability - much more responsive than 100ms
+  delay(5);
 }
