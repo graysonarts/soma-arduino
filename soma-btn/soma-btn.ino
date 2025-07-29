@@ -191,6 +191,5 @@ void loop() {
     oldSelectedChannel = selectedChannel;
   }
 
-  // Even shorter delay since interrupts handle responsiveness
   delay(2);
 }
