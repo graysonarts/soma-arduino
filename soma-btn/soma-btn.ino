@@ -5,6 +5,8 @@ uint8_t selectedChannel = 0;
 
 #define ENABLE_SERIAL
 
+#define AUTO
+
 #ifdef ENABLE_SERIAL
 #define D(x) Serial.print(x);
 #define DBIN(x) Serial.print(x, BIN);
@@ -25,8 +27,11 @@ uint8_t selectedChannel = 0;
 #define LED_ADDR 0x20
 #define IR_ADDR 0x21
 
-//                              C0. C1. C2. C3...
-int8_t button_pins[BTN_CNT] = { 0, 1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13 };
+#define MUTE 13 // This sets the bank to 4 which has no input connected to it.
+#define IDLE_TIMEOUT 30000 // 30s in ms
+
+//                               0.  1.  2.  3. 4. 5  6. 7. 8. 9. 10 11
+int8_t button_pins[BTN_CNT] = { 13, 12, 11, 10, 9, 8, 7, 6, 2, 3, 1, 0 };
 int8_t button_states[BTN_CNT] = { -1 };
 unsigned long last_auto = 0;
 
@@ -71,7 +76,7 @@ void setup() {
   ledMcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
   ledMcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
 
-  setChannel(0);
+  setChannel(MUTE);
 
   // Configure button pins for input
   // Configuer led pins for output
@@ -89,6 +94,9 @@ void setup() {
   DBIN(conf);
   DBR;
 
+  DLN("Enabling Watchdog timer");
+  rp2040.wdt_begin(8000); // If it doesn't respond for 8 seconds, restart
+
   DLN("Startup Done");
 }
 
@@ -99,6 +107,8 @@ void loop() {
 
   // If we have a new state, update the MCP and turn on the LED for the selected channel, turn off all other leds
   // Wait for 100ms
+
+  rp2040.wdt_reset(); // Feed the watchdog timer
 
   for (int i = 0; i < BTN_CNT; i++) {
     button_states[i] = digitalRead(button_pins[i]);
@@ -113,14 +123,19 @@ void loop() {
 #endif
 
   for (int i = 0; i < BTN_CNT; i++) {
+    #ifdef DEBUG
     D(button_states[i] ? "X" : ".");
+    #endif // DEBUG
     // Set LED channels
     if (button_states[i] == LOW) {
       selectedChannel = i;
       // break;
     }
   }
+#ifdef DEBUG
   DBR;
+#endif // DEBUG
+
 
 
   if (selectedChannel != oldSelectedChannel) {
@@ -129,6 +144,14 @@ void loop() {
     DBR;
     setChannel(selectedChannel);
     oldSelectedChannel = selectedChannel;
+    last_auto = millis();
+  }
+
+  if (millis() - last_auto > IDLE_TIMEOUT && oldSelectedChannel != MUTE) {
+    DLN("Muting from idle time")
+    setChannel(MUTE);
+    oldSelectedChannel = MUTE;
+    selectedChannel = MUTE;
   }
 
   delay(20);
