@@ -5,8 +5,6 @@ uint8_t selectedChannel = 0;
 
 #define ENABLE_SERIAL
 
-#define AUTO
-
 #ifdef ENABLE_SERIAL
 #define D(x) Serial.print(x);
 #define DBIN(x) Serial.print(x, BIN);

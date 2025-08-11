@@ -66,13 +66,14 @@ void handleRx(int numBytes)
   }
 
   selectedChannel = (rxByte[1] & 0x0F) % 4;
-  selectedBank = (rxByte[1] & 0x0F) / 4;
+  selectedBank = (rxByte[1] & 0x1F) / 4;
 }
 
 void selectBank(uint8_t bank)
 {
   Serial.print("Selecting bank ");
   Serial.println(bank);
+  selectedBank = bank;
 
   // Bank select
   IrSender.setSendPin(BANK_SELECT_PIN);
@@ -97,8 +98,7 @@ void setup()
   Serial.begin(115200); // Status message will be sent to PC at 9600 baud
 
   // This is useful for debugging, but it needs to be wrapped in some USB Serial ifdef, and I'm not sure which at the moment
-  // while (!Serial)
-  //   ;
+  // while (!Serial);
 
   Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library version " VERSION_IRREMOTE));
 
