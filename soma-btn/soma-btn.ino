@@ -45,7 +45,7 @@ void setChannel(uint8_t chan) {
     ledMcp.writePort(MCP23017Port::B, 0);
     ledMcp.writePort(MCP23017Port::A, 1 << (chan - 8));
   }
-  irMcp.writePort(MCP23017Port::B, (selectedChannel) | 0x10);
+  irMcp.writePort(MCP23017Port::B, selectedChannel);
 }
  
 void setup() {
@@ -138,7 +138,7 @@ void loop() {
 
   if (selectedChannel != oldSelectedChannel) {
     D("switching channel to ");
-    DBIN(selectedChannel | 0x10);
+    DBIN(selectedChannel);
     DBR;
     setChannel(selectedChannel);
     oldSelectedChannel = selectedChannel;

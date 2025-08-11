@@ -66,7 +66,7 @@ void handleRx(int numBytes)
   }
 
   selectedChannel = (rxByte[1] & 0x0F) % 4;
-  selectedBank = (rxByte[1] & 0x1F) / 4;
+  selectedBank = (rxByte[1] & 0x0F) / 4;
 }
 
 void selectBank(uint8_t bank)
