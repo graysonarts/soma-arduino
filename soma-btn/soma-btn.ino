@@ -38,14 +38,17 @@ MCP23017 irMcp = MCP23017(IR_ADDR, Wire);  // Not a real MCP, just using the sam
 
 void setChannel(uint8_t chan) {
   // Channels 0-7 use PORT B, channels 8-11 use PORT A
+#ifdef ENABLE_LED
   if (chan < 8) {
     ledMcp.writePort(MCP23017Port::A, 0);
     ledMcp.writePort(MCP23017Port::B, 1 << chan);
   } else {
     ledMcp.writePort(MCP23017Port::B, 0);
     ledMcp.writePort(MCP23017Port::A, 1 << (chan - 8));
-  }
-  irMcp.writePort(MCP23017Port::B, selectedChannel);
+  }  
+#endif
+
+  irMcp.writePort(MCP23017Port::B, chan);
 }
  
 void setup() {
@@ -66,15 +69,18 @@ void setup() {
   irMcp.init();
   delay(1000);
 
+#ifdef ENABLE_LED
   DLN("Setting MCP ports to output");
   ledMcp.portMode(MCP23017Port::A, 0, 0xFF, 0xFF);
   ledMcp.portMode(MCP23017Port::B, 0, 0xFF, 0xFF);
 
-
   ledMcp.writeRegister(MCP23017Register::GPIO_A, 0x00);  //Reset port A
   ledMcp.writeRegister(MCP23017Register::GPIO_B, 0x00);  //Reset port B
+#endif
 
   setChannel(MUTE);
+  oldSelectedChannel = MUTE;
+  selectedChannel = MUTE;
 
   // Configure button pins for input
   // Configuer led pins for output
@@ -82,6 +88,7 @@ void setup() {
     pinMode(button_pins[i], INPUT_PULLUP);
   }
 
+#ifdef ENABLE_LED
   uint8_t conf = ledMcp.readRegister(MCP23017Register::IODIR_A);
   D("IODIR_A : ");
   DBIN(conf);
@@ -91,6 +98,7 @@ void setup() {
   D("IODIR_B : ");
   DBIN(conf);
   DBR;
+#endif
 
   DLN("Enabling Watchdog timer");
   rp2040.wdt_begin(8000); // If it doesn't respond for 8 seconds, restart

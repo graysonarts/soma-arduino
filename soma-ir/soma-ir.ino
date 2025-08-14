@@ -2,6 +2,8 @@
 #include <IRremote.hpp>
 #include <Wire.h>
 
+// #define AUTO_ADVANCE
+
 #define SDA 4
 #define SCL 5
 #define I2CADDR 0x21
@@ -32,6 +34,9 @@ uint8_t selectedBank = 0;
 uint8_t selectedChannel = 0;
 uint8_t lastBank = 0;
 uint8_t lastChannel = 0;
+
+unsigned long last_auto = 0;
+uint8_t fakeIn = 0;
 
 void handleRx(int numBytes)
 {
@@ -73,11 +78,10 @@ void selectBank(uint8_t bank)
 {
   Serial.print("Selecting bank ");
   Serial.println(bank);
-  selectedBank = bank;
 
   // Bank select
   IrSender.setSendPin(BANK_SELECT_PIN);
-  IrSender.sendNEC(ADDRESS, commands[selectedBank], REPEATS);
+  IrSender.sendNEC(ADDRESS, commands[bank], REPEATS);
 }
 
 void selectChannelOnBank(uint8_t channel, uint8_t bank)
@@ -88,8 +92,8 @@ void selectChannelOnBank(uint8_t channel, uint8_t bank)
   Serial.println(bank);
 
   // Channel select
-  IrSender.setSendPin(bankChannelPins[selectedBank]);
-  IrSender.sendNEC(ADDRESS, commands[selectedChannel], REPEATS);
+  IrSender.setSendPin(bankChannelPins[bank]);
+  IrSender.sendNEC(ADDRESS, commands[channel], REPEATS);
 }
 
 void setup()
@@ -107,8 +111,8 @@ void setup()
   IrSender.begin(tSendPin, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN); // Specify send pin and enable feedback LED at default feedback LED pin
   Serial.print(F("Send IR signals at pin "));
   Serial.println(tSendPin);
-  selectChannelOnBank(0, 0);
-  selectBank(0);
+  selectChannelOnBank(selectedChannel, selectedBank);
+  selectBank(selectedBank);
 
   // I2C Setup
   Wire.setSDA(SDA);
@@ -135,6 +139,15 @@ void loop()
   Serial.println(F("Send NEC"));
   Serial.flush();
   */
+#ifdef AUTO_ADVANCE
+  if (millis() - last_auto > 1000) {
+    Serial.println("Auto Advancing");
+    fakeIn = (fakeIn + 1) % 12;
+    selectedChannel = fakeIn % 4;
+    selectedBank = fakeIn / 4;
+    last_auto = millis();
+  }
+#endif
 
   bool transmitted = false;
 
